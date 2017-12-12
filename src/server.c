@@ -304,7 +304,8 @@ struct redisCommand redisCommandTable[] = {
     {"pfdebug",pfdebugCommand,-3,"w",0,NULL,0,0,0,0,0},
     {"post",securityWarningCommand,-1,"lt",0,NULL,0,0,0,0,0},
     {"host:",securityWarningCommand,-1,"lt",0,NULL,0,0,0,0,0},
-    {"latency",latencyCommand,-2,"aslt",0,NULL,0,0,0,0,0}
+    {"latency",latencyCommand,-2,"aslt",0,NULL,0,0,0,0,0},
+    {"cpuinfo",cpuinfoCommand,-1,"lt",0,NULL,0,0,0,0,0},
 };
 
 /*============================ Utility functions ============================ */
@@ -2677,6 +2678,31 @@ void timeCommand(client *c) {
     addReplyMultiBulkLen(c,2);
     addReplyBulkLongLong(c,tv.tv_sec);
     addReplyBulkLongLong(c,tv.tv_usec);
+}
+
+void getCpuBrandName(int op, char* brandname) {
+  int eax, ebx, ecx, edx;
+  char buf[16];
+  __asm__("cpuid"
+          : "=a" (eax),
+            "=b" (ebx),
+            "=c" (ecx),
+            "=d" (edx)
+          :"0" (op));
+  memcpy(buf, (char*)(&eax), 4);
+  memcpy(buf+4, (char*)(&ebx), 4);
+  memcpy(buf+8, (char*)(&ecx), 4);
+  memcpy(buf+12, (char*)(&edx), 4);
+  buf[15] = '\0';
+  strcat(brandname, buf);
+}
+
+void cpuinfoCommand(client *c) {
+  char brandname[16*3] = "";
+  getCpuBrandName(0x80000002, brandname);
+  getCpuBrandName(0x80000003, brandname);
+  getCpuBrandName(0x80000004, brandname);
+  addReplyBulkCBuffer(c, brandname, strlen(brandname));
 }
 
 /* Helper function for addReplyCommand() to output flags. */
